@@ -8,8 +8,8 @@ SITE_URL = 'https://www.amazon.com/'
 USERNAME = 'username'
 PASSWORD = 'password'
 PROXY = '192.168.2.31:8118'
-PRODUCTS = 'product_link'
-RED_LIST = ''
+PRODUCTS = 'url'
+RED_LIST = 'name'
 
 
 def webdriver_login(driver, account, passwd):
@@ -40,25 +40,24 @@ def auto_run_amazon():
 
     driver.get(PRODUCTS)
     variations = driver.find_element_by_id('variationsTwister')
-    variation_list = variations.find_elements_by_xpath('ul')
-    type_count = []
-    for index, ul in enumerate(variation_list):
-        type_count.append(0)
-        contents = ul.find_elements_by_xpath('li')
-        for content in contents:
-            # content.click()
-            type_count[index] += 1
+    variations = variations.find_elements_by_xpath('ul')
+    for size_id, variation_type in enumerate(variations):
+        contents = variation_type.find_elements_by_xpath('li')
+        for color_id, content in enumerate(contents):
+            url = 'https://www.amazon.com/?mv_color_name={}&mv_size_name=\
+                   {}'.format(color_id, size_id)
+            driver.get(url)
 
     offer_list = driver.find_element_by_id('olpOfferList')
     offers = offer_list.find_elements_by_class_name('olpOffer')
-    # offers = offer_list.find_elements_by_xpath('//div[@class="olpOffer"]')
     for offer in offers:
         seller_name = offer.find_element_by_class_name('olpSellerName').text
         if seller_name != RED_LIST:
             offer.find_element_by_name('submit.addToCart').click()
             time.sleep(3)
-            new_window = driver.current_window_handle
-            new_window.find_element_by_id('huc-v2-order-row-buttons')
+            driver.find_element_by_id('hlb-ptc-btn-native').click()
+            time.sleep(3)
+            break
 
     driver.quit()
 
