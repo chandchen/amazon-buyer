@@ -24,7 +24,7 @@ def robot_check(driver):
             section = driver.find_element_by_class_name(
                 'a-spacing-large').find_element_by_xpath("//img[@src]")
             res = urllib.request.urlopen(section.get_attribute('src')).read()
-            image_path = './vcode/vcode.jpg'
+            image_path = './vcode.jpg'
             f = open(image_path, 'wb')
             f.write(res)
             image = Image.open(image_path)
