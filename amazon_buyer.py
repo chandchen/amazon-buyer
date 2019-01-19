@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 import time
+import pytesseract
+import urllib.request
 
+from PIL import Image
 from selenium import webdriver
 
-
-SITE_URL = 'https://www.amazon.com/'
-USERNAME = 'username'
-PASSWORD = 'password'
-PROXY = '192.168.2.31:8118'
-PRODUCTS = 'url'
-RED_LIST = 'name'
+from settings import *
 
 
 def webdriver_login(driver, account, passwd):
@@ -19,46 +16,66 @@ def webdriver_login(driver, account, passwd):
     return driver
 
 
+def robot_check(driver):
+
+    if driver.title == 'Robot Check':
+        time.sleep(1)
+        try:
+            section = driver.find_element_by_class_name(
+                'a-spacing-large').find_element_by_xpath("//img[@src]")
+            res = urllib.request.urlopen(section.get_attribute('src')).read()
+            image_path = './vcode/vcode.jpg'
+            f = open(image_path, 'wb')
+            f.write(res)
+            image = Image.open(image_path)
+            vcode = pytesseract.image_to_string(image)
+            driver.find_element_by_id('captchacharacters').send_keys(vcode)
+            driver.find_element_by_xpath("//button[@type]").click()
+            robot_check(driver)
+        except Exception as e:
+            return
+    return
+
+
 def auto_run_amazon():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument('--proxy-server=http://{}'.format(PROXY))
     chrome_options.add_argument("--start-maximized")
     driver = webdriver.Chrome(chrome_options=chrome_options)
 
-    driver.get(SITE_URL)
+    driver.get("http://httpbin.org/ip")
+    if PROXY_ORIGIN in driver.page_source:
+        driver.get(SITE_URL)
+        robot_check(driver)
+        driver.find_element_by_id('a-autoid-0-announce').click()
 
-    # redirect to login page
-    driver.find_element_by_id('a-autoid-0-announce').click()
+        driver = webdriver_login(driver, USERNAME, PASSWORD)
+        time.sleep(1)
 
-    # re-check proxy here
-    # driver.get("http://httpbin.org/ip")
-    # time.sleep(1)
-    # print(driver.page_source)
+        driver.get(PRODUCTS)
+        try:
+            variations = driver.find_element_by_id(
+                'variationsTwister').find_elements_by_xpath('ul')
+        except Exception as e:
+            variations = []
+        for size_id, var_type in enumerate(variations):
+            try:
+                contents = var_type.find_elements_by_xpath('li')
+            except Exception as e:
+                contents = []
+            for color_id, content in enumerate(contents):
+                driver.get(DYNAMIC_PRODUCTS.format(color_id, size_id))
 
-    driver = webdriver_login(driver, USERNAME, PASSWORD)
-    time.sleep(1)
-
-    driver.get(PRODUCTS)
-    variations = driver.find_element_by_id('variationsTwister')
-    variations = variations.find_elements_by_xpath('ul')
-    for size_id, variation_type in enumerate(variations):
-        contents = variation_type.find_elements_by_xpath('li')
-        for color_id, content in enumerate(contents):
-            url = 'https://www.amazon.com/?mv_color_name={}&mv_size_name=\
-                   {}'.format(color_id, size_id)
-            driver.get(url)
-
-    offer_list = driver.find_element_by_id('olpOfferList')
-    offers = offer_list.find_elements_by_class_name('olpOffer')
-    for offer in offers:
-        seller_name = offer.find_element_by_class_name('olpSellerName').text
-        if seller_name != RED_LIST:
-            offer.find_element_by_name('submit.addToCart').click()
-            time.sleep(3)
-            driver.find_element_by_id('hlb-ptc-btn-native').click()
-            time.sleep(3)
-            break
-
+                offers = driver.find_element_by_id(
+                    'olpOfferList').find_elements_by_class_name('olpOffer')
+                for offer in offers:
+                    seller = offer.find_element_by_class_name(
+                        'olpSellerName').text
+                    if seller not in WHITE_LIST:
+                        offer.find_element_by_name('submit.addToCart').click()
+                        time.sleep(1)
+                        driver.find_element_by_id('hlb-ptc-btn-native').click()
+                        break
     driver.quit()
 
 
